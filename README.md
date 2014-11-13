@@ -58,7 +58,15 @@ fn main() {
 
 ## Running the examples
 
+Set your Orchestrate.io API Key as an environment variable.
+
 ```shell
-cargo run --examples name
+export ORC_API_KEY=...
+```
+
+Build and run an example.
+
+```shell
+cargo run --example name
 ```
 
