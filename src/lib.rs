@@ -1,21 +1,27 @@
 #![crate_name="orchestrate"]
-#![feature(macro_rules)]
 
-#![feature(phase)]
 #![feature(globs)]
+#![feature(phase)]
 
-extern crate curl;
 extern crate serialize;
+extern crate hyper;
 extern crate url;
 
-pub use client::{Client, Headers};
-pub use key_value::{KV, KVResult, KVResults};
-pub use search::Search;
+pub use client::{Client};
+pub use key_value::{KeyValue, KVResult, KVResults, ListReader};
+pub use search::SearchBuilder;
+pub use events::EventReader;
 pub use error::Error;
 pub use path::Path;
+
+use serialize::{Decoder, Decodable, json};
 
 mod client;
 mod key_value;
 mod search;
+mod events;
 mod error;
 mod path;
+
+pub trait RepresentsJSON : Decodable<json::Decoder, json::DecoderError> {}
+impl<T: Decodable<json::Decoder, json::DecoderError>> RepresentsJSON for T {}

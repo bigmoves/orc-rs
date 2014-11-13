@@ -1,87 +1,171 @@
-use curl::http;
+use search::{SearchBuilder};
+use events::EventReader;
+use error::Error;
 
+use std::fmt;
+use std::io::IoError;
 use std::collections::HashMap;
-use serialize::json::{Decoder, DecoderError};
-use serialize::Decodable;
-use serialize::json;
+
+use hyper::{Url, HttpError, HttpResult};
+use hyper::client::{Request};
+use hyper::client::Response as HyperResponse;
+use hyper::method::{Method, Head};
+use hyper::header::{Header, HeaderFormat, Headers};
+use hyper::header::common::{UserAgent, ContentType, ContentLength};
+use hyper::status::StatusCode;
+
 use serialize::base64::{MIME, ToBase64};
 
-pub struct Client {
-    api_endpoint: String,
-    token: String,
-    handle: http::Handle
+pub fn version() -> String {
+    format!("orc-rs {}", format!("{}.{}.{}",
+                                env!("CARGO_PKG_VERSION_MAJOR"),
+                                env!("CARGO_PKG_VERSION_MINOR"),
+                                env!("CARGO_PKG_VERSION_PATCH")))
 }
 
-pub type Headers = HashMap<String, String>;
+pub struct Client {
+    pub api_endpoint: String,
+    token: String,
+    user_agent: String
+}
 
 impl Client {
     pub fn new(token: &str) -> Client {
         Client {
             api_endpoint: "api.orchestrate.io".to_string(),
             token: token.to_string(),
-            handle: http::handle()
+            user_agent: version()
         }
     }
 
-    pub fn from_value<T: Decodable<Decoder,DecoderError>>(value: HashMap<String, String>) -> Option<T> {
-        match json::decode(json::encode(&value).as_slice()) {
-            Ok(e) => Some(e),
-            _ => None
+    pub fn search<'a, 'b>(&'a mut self, collection: &str)
+                          -> SearchBuilder<'a, 'b> {
+        SearchBuilder::new(self, collection)
+    }
+
+    pub fn event<'a, 'b>(&'a mut self) -> EventReader<'a, 'b> {
+        EventReader::new(self)
+    }
+
+    pub fn ping(&self) -> Result<bool, Error> {
+        let res = self.request(Head, "", None, None).unwrap();
+
+        if res.code != 200 {
+            return Err(Error::new(res.body.as_slice()));
         }
+
+        Ok(true)
     }
 
-    pub fn ping(&mut self) -> http::Response {
-        self.request(http::handle::Head, "", None, None)
+    // temporary fix
+    pub fn delete_request(&self, url: &str) -> HttpResult<HyperResponse> {
+        let uri = format!("https://{}/v0/{}", self.api_endpoint.as_slice(), url);
+        let mut req = Request::delete(Url::parse(uri.as_slice()).unwrap()).unwrap();
+
+        req.headers_mut().set(UserAgent(self.user_agent.to_string()));
+        req.headers_mut().set(Authorization(self.token.to_string()));
+
+        Ok(req.start().unwrap()
+           .send().unwrap())
     }
 
-    pub fn get_request(&mut self, path: &str) -> http::Response {
-        self.request(http::handle::Get, path, None, None)
-    }
+    pub fn request(&self, method: Method, url: &str,
+                   headers: Option<HashMap<String, String>>,
+                   body: Option<&str>) -> Result<Response, ClientError> {
+        let uri = format!("https://{:s}/v0/{:s}",
+                          self.api_endpoint.as_slice(), url);
 
-    pub fn put_request(&mut self, path: &str, headers: Option<Headers>, body: &str) -> http::Response {
-        self.request(http::handle::Put, path, headers, Some(body))
-    }
+        let url = Url::parse(uri.as_slice()).unwrap();
 
-    pub fn post_request(&mut self, path: &str, body: &str) -> http::Response {
-        self.request(http::handle::Post, path, None, Some(body))
-    }
-
-    pub fn delete_request(&mut self, path: &str) -> http::Response {
-        self.request(http::handle::Delete, path, None, None)
-    }
-
-    pub fn request(&mut self, method: http::handle::Method, path: &str, headers: Option<Headers>, body: Option<&str>) -> http::Response {
-        let uri = format!("https://{:s}/v0/{:s}", self.api_endpoint.as_slice(), path);
-        let mut request = http::handle::Request::new(&mut self.handle, method).uri(uri);
-
-        // set basic auth header
-        let mut config = MIME;
-        config.line_length = None;
-        request = request.header("Authorization", format!("Basic {}", self.token.as_bytes().to_base64(config).as_slice()).as_slice());
+        let mut req = match Request::new(method, url) {
+            Ok(req) => req,
+            Err(err) => return Err(HttpRequestError(err))
+        };
 
         match headers {
-            Some(headers) => {
-                for (name, val) in headers.iter() {
-                    request = request.header(name.as_slice(), val.as_slice());
+            Some(hdrs) => {
+                for (k, v) in hdrs.iter() {
+                    req.headers_mut()
+                       .set_raw(k.to_string(),
+                                vec![v.to_string().as_bytes().to_vec()]);
                 }
             },
             None => ()
         }
 
-        request = request.header("User-Agent", "orc-rs");
+        req.headers_mut().set(UserAgent(self.user_agent.to_string()));
+        req.headers_mut().set(Authorization(self.token.to_string()));
 
-        let mut bs;
         match body {
             Some(body) => {
-                bs = body.to_string();
-                request = request.body(&bs);
-                request = request.header("Content-Type", "application/json");
+                req.headers_mut().set(ContentLength(body.len()));
+                req.headers_mut().set(ContentType(from_str("application/json").unwrap()));
+            },
+            None => req.headers_mut().set(ContentLength(0))
+        };
+
+        let mut stream = match req.start() {
+            Ok(stream) => stream,
+            Err(err) => return Err(HttpRequestError(err))
+        };
+
+        match body {
+            Some(body) => match stream.write(body.as_bytes()) {
+                Ok(()) => (),
+                Err(err) => return Err(HttpIoError(err))
             },
             None => ()
-        }
+        };
 
-        request.exec().unwrap()
+        let mut resp = match stream.send() {
+            Ok(resp) => resp,
+            Err(err) => return Err(HttpRequestError(err))
+        };
+
+        let body = match resp.read_to_string() {
+            Ok(body) => body,
+            Err(err) => return Err(HttpIoError(err))
+        };
+
+        Ok(Response {
+            code: resp.status as i32,
+            status: resp.status,
+            headers: resp.headers,
+            body: body
+        })
     }
-
 }
 
+pub struct Response {
+    pub code: i32,
+    pub status: StatusCode,
+    pub headers: Headers,
+    pub body: String
+}
+
+struct Authorization(String);
+
+impl Header for Authorization {
+    fn header_name(_: Option<Authorization>) -> &'static str {
+        "Authorization"
+    }
+    fn parse_header(_: &[Vec<u8>]) -> Option<Authorization> {
+        None
+    }
+}
+
+impl HeaderFormat for Authorization {
+    fn fmt_header(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        let mut config = MIME;
+        config.line_length = None;
+
+        let Authorization(ref value) = *self;
+        write!(fmt, "Basic {}", value.as_bytes().to_base64(config))
+    }
+}
+
+#[deriving(Show, PartialEq, Clone)]
+pub enum ClientError {
+    HttpRequestError(HttpError),
+    HttpIoError(IoError)
+}

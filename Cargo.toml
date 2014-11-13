@@ -2,13 +2,12 @@
 
 name = "orchestrate"
 version = "0.0.1"
-authors = ["Chad Miller <chadtmiller15@gmail.com"]
+authors = ["Chad Miller <chadtmiller15@gmail.com>"]
 
-[dependencies.curl]
+[dependencies.hyper]
 
-git = "https://github.com/carllerche/curl-rust"
+git = "https://github.com/hyperium/hyper.git"
 
 [dependencies.url]
 
 git = "https://github.com/servo/rust-url.git"
-
