@@ -1,13 +1,10 @@
 use client::Client;
 use path::Path;
 use error::Error;
-
 use std::io::IoError;
-
 use hyper::method::{Get, Put, Post, Delete};
 use hyper::header::common::location::Location;
 use url::form_urlencoded::serialize_owned as serialize;
-
 use serialize::{json, Encodable};
 use serialize::json::Encoder;
 use RepresentsJSON;
@@ -43,7 +40,8 @@ pub trait KeyValue {
 
     fn put<'a,
            T: Encodable<Encoder<'a>, IoError>>(
-               &self, collection: &str,
+               &self,
+               collection: &str,
                key: &str, value: &T) -> Result<Path, Error>;
 
     fn delete(&self, collection: &str, key: &str) -> Result<bool, Error>;

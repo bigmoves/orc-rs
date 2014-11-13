@@ -1,10 +1,8 @@
 use client::Client;
 use error::Error;
 use path::Path;
-
 use url::form_urlencoded::serialize_owned as serialize;
 use hyper::Get;
-
 use serialize::json;
 use RepresentsJSON;
 

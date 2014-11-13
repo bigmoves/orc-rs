@@ -1,11 +1,9 @@
 use search::{SearchBuilder};
 use events::EventReader;
 use error::Error;
-
 use std::fmt;
 use std::io::IoError;
 use std::collections::HashMap;
-
 use hyper::{Url, HttpError, HttpResult};
 use hyper::client::{Request};
 use hyper::client::Response as HyperResponse;
@@ -13,14 +11,13 @@ use hyper::method::{Method, Head};
 use hyper::header::{Header, HeaderFormat, Headers};
 use hyper::header::common::{UserAgent, ContentType, ContentLength};
 use hyper::status::StatusCode;
-
 use serialize::base64::{MIME, ToBase64};
 
 pub fn version() -> String {
     format!("orc-rs {}", format!("{}.{}.{}",
-                                env!("CARGO_PKG_VERSION_MAJOR"),
-                                env!("CARGO_PKG_VERSION_MINOR"),
-                                env!("CARGO_PKG_VERSION_PATCH")))
+                                 env!("CARGO_PKG_VERSION_MAJOR"),
+                                 env!("CARGO_PKG_VERSION_MINOR"),
+                                 env!("CARGO_PKG_VERSION_PATCH")))
 }
 
 pub struct Client {

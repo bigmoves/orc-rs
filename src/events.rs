@@ -1,9 +1,7 @@
 use client::Client;
 use error::Error;
-
 use url::form_urlencoded::serialize_owned as serialize;
 use hyper::method::Get;
-
 use serialize::json;
 use RepresentsJSON;
 
