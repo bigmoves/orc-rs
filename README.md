@@ -56,3 +56,9 @@ fn main() {
 }
 ```
 
+## Running the examples
+
+```shell
+cargo run --examples name
+```
+

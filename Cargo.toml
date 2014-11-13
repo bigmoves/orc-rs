@@ -1,13 +1,18 @@
 [package]
-
 name = "orchestrate"
 version = "0.0.1"
 authors = ["Chad Miller <chadtmiller15@gmail.com>"]
 
 [dependencies.hyper]
-
 git = "https://github.com/hyperium/hyper.git"
 
 [dependencies.url]
-
 git = "https://github.com/servo/rust-url.git"
+
+[[example]]
+name = "json-api"
+path = "examples/json-api.rs"
+
+[dev_dependencies.nickel]
+git = "https://github.com/nickel-org/nickel.rs.git"
+
