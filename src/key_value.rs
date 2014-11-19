@@ -1,15 +1,20 @@
 use client::Client;
 use path::Path;
-use error::Error;
-use std::io::IoError;
-use hyper::method::{Get, Put, Post, Delete};
-use hyper::header::common::location::Location;
-use url::form_urlencoded::serialize_owned as serialize;
+use error::{OrchestrateError, ResponseError};
+use RepresentsJSON;
 use serialize::{json, Encodable};
 use serialize::json::Encoder;
-use RepresentsJSON;
+use std::io::IoError;
+use hyper::header::common::location::Location;
+use hyper::method::{Get, Put, Post, Delete};
 
-#[deriving(Decodable, Encodable, Show)]
+#[deriving(Encodable, Decodable, Show)]
+pub struct KVResult<T> {
+    pub path: Path,
+    pub value: T
+}
+
+#[deriving(Encodable, Decodable, Show)]
 pub struct KVResults<T> {
     pub count: int,
     pub results: Vec<KVResult<T>>,
@@ -22,236 +27,271 @@ impl<T> KVResults<T> {
     }
 }
 
-#[deriving(Decodable, Encodable, Show)]
-pub struct KVResult<T> {
-    pub path: Path,
-    pub value: T
+pub type KeyValueResult<T> = Result<KVResult<T>, OrchestrateError>;
+pub type KeyValueResults<T> = Result<KVResults<T>, OrchestrateError>;
+pub type PathResult = Result<Path, OrchestrateError>;
+
+pub struct GetKeyValue<'a> {
+    client: &'a mut Client,
+    collection: String,
+    key: String,
+    url: String
 }
 
-pub trait KeyValue {
-    fn get<T: RepresentsJSON>(&self, collection: &str, key: &str)
-                              -> Result<KVResult<T>, Error>;
+impl<'a> GetKeyValue<'a> {
 
-    fn post<'a,
-            T: Encodable<Encoder<'a>, IoError>>(
-                 &self,
-                 collection: &str,
-                 value: &T) -> Result<Path, Error>;
+    pub fn new(client: &'a mut Client, collection: &str, key: &str)
+               -> GetKeyValue<'a> {
+        GetKeyValue {
+            client: client,
+            collection: collection.to_string(),
+            key: key.to_string(),
+            url: format!("{}/{}", collection, key)
+        }
+    }
 
-    fn put<'a,
-           T: Encodable<Encoder<'a>, IoError>>(
-               &self,
-               collection: &str,
-               key: &str, value: &T) -> Result<Path, Error>;
+    pub fn exec<T: RepresentsJSON>(self) -> KeyValueResult<T> {
+        let GetKeyValue { client, collection, key, url } = self;
+        let mut res = try!(client.trailing(url.as_slice())
+                                 .method(Get)
+                                 .exec());
+        let body = try!(res.read_to_string());
 
-    fn delete(&self, collection: &str, key: &str) -> Result<bool, Error>;
-    fn purge(&self, collection: &str, key: &str) -> Result<bool, Error>;
-    fn list<'a, 'b>(&'a mut self, collection: &str) -> ListReader<'a, 'b>;
-}
-
-impl KeyValue for Client {
-    fn get<T: RepresentsJSON>(&self, collection: &str, key: &str)
-                              -> Result<KVResult<T>, Error> {
-        let uri = format!("{}/{}", collection.to_string(), key.to_string());
-        let res = self.request(Get, uri.as_slice(), None, None).unwrap();
-
-        if res.code != 200 {
-            return Err(Error::new(res.body.as_slice()));
+        if (res.status as i32) != 200 {
+            return Err(ResponseError(body));
         }
 
         Ok(KVResult {
             path: Path {
-                collection: collection.to_string(),
-                key: key.to_string(),
+                collection: collection,
+                key: key,
                 ref_: None
             },
-            value: json::decode::<T>(res.body.as_slice()).unwrap()
+            value: try!(json::decode::<T>(body.as_slice()))
         })
-    }
-
-    fn post<'a,
-            T: Encodable<Encoder<'a>, IoError>>(
-                &self,
-                collection: &str,
-                value: &T) -> Result<Path, Error> {
-        let json_str = json::encode(value);
-        let res = self.request(Post, collection, None,
-                                   Some(json_str.as_slice())).unwrap();
-
-        if res.code != 201 {
-            return Err(Error::new(res.body.as_slice()));
-        }
-
-        let Location(ref location) = *res.headers.get::<Location>().unwrap();
-        let parts: Vec<&str> = location.split('/').collect();
-        let key = parts[3].to_string();
-        let ref_ = Some(parts[5].to_string());
-
-        Ok(Path {
-            collection: collection.to_string(),
-            key: key,
-            ref_: ref_
-        })
-    }
-
-    fn put<'a,
-           T: Encodable<Encoder<'a>, IoError>>(
-               &self,
-               collection: &str,
-               key: &str, value: &T) -> Result<Path, Error> {
-        let json_str = json::encode(&value);
-        let trailing_uri = format!("{}/{}", collection.as_slice(),
-                                   key.as_slice());
-        let res = self.request(Put, trailing_uri.as_slice(), None,
-                               Some(json_str.as_slice())).unwrap();
-
-        if res.code != 201 {
-            return Err(Error::new(res.body.as_slice()));
-        }
-
-        let Location(ref location) = *res.headers.get::<Location>().unwrap();
-        let parts: Vec<&str> = location.split('/').collect();
-        let ref_ = Some(parts[5].to_string());
-
-        Ok(Path {
-            collection: collection.to_string(),
-            key: key.to_string(),
-            ref_: ref_
-        })
-    }
-
-    fn delete(&self, collection: &str, key: &str) -> Result<bool, Error> {
-        let uri = format!("{}/{}", collection.to_string(),
-                          key.to_string());
-        let mut res = self.delete_request(uri.as_slice()).unwrap();
-
-        if (res.status as i32) != 204 {
-            return Err(Error::new(res.read_to_string().unwrap().as_slice()));
-        }
-
-        Ok(true)
-    }
-
-    fn purge(&self, collection: &str, key: &str) -> Result<bool, Error> {
-        let uri = format!("{}/{}?purge=true", collection.to_string(),
-                          key.to_string());
-        let mut res = self.delete_request(uri.as_slice()).unwrap();
-
-        if (res.status as i32) != 204 {
-            return Err(Error::new(res.read_to_string().unwrap().as_slice()));
-        }
-
-        Ok(true)
-    }
-
-    fn list<'a, 'b>(&'a mut self, collection: &str) -> ListReader<'a, 'b> {
-        ListReader::new(self, collection)
     }
 }
 
-pub struct ListReader<'a, 'b> {
+pub struct CreateKeyValue<'a> {
+    client: &'a mut Client,
     collection: String,
-    limit: Option<int>,
-    start_key: Option<String>,
-    after_key: Option<String>,
-    before_key: Option<String>,
-    end_key: Option<String>,
+    url: String,
+    data: Option<String>
+}
+
+impl<'a> CreateKeyValue<'a> {
+
+    pub fn new(client: &'a mut Client, collection: &str) -> CreateKeyValue<'a> {
+        CreateKeyValue {
+            client: client,
+            collection: collection.to_string(),
+            url: collection.to_string(),
+            data: None
+        }
+    }
+
+    pub fn data<'b,
+                T: Encodable<Encoder<'b>, IoError>>(
+                    mut self,
+                    data: &T) -> CreateKeyValue<'a> {
+        self.data = Some(json::encode(&data));
+        self
+    }
+
+    pub fn exec(self) -> PathResult {
+        let CreateKeyValue { client, collection, url, data } = self;
+        let mut res = try!(client.trailing(url.as_slice())
+                                 .body(data.unwrap().as_slice())
+                                 .method(Post)
+                                 .exec());
+        let body = try!(res.read_to_string());
+
+        if (res.status as i32) != 201 {
+            return Err(ResponseError(body));
+        }
+
+        let Location(ref location) = *res.headers.get::<Location>().unwrap();
+        let parts: Vec<&str> = location.split('/').collect();
+
+        Ok(Path {
+            collection: collection,
+            key: parts[3].to_string(),
+            ref_: Some(parts[5].to_string())
+        })
+    }
+}
+
+pub struct UpdateKeyValue<'a> {
+    client: &'a mut Client,
+    collection: String,
+    key: String,
+    url: String,
+    data: Option<String>,
+    ref_: Option<String>,
+    if_absent: Option<bool>
+}
+
+impl<'a> UpdateKeyValue<'a> {
+
+    pub fn new(client: &'a mut Client, collection: &str, key: &str)
+               -> UpdateKeyValue<'a> {
+        UpdateKeyValue {
+            client: client,
+            collection: collection.to_string(),
+            key: key.to_string(),
+            url: format!("{}/{}", collection.to_string(), key.to_string()),
+            data: None,
+            ref_: None,
+            if_absent: None
+        }
+    }
+
+    pub fn data<'b,
+                T: Encodable<Encoder<'b>, IoError>>(
+                    mut self,
+                    data: &T) -> UpdateKeyValue<'a> {
+        self.data = Some(json::encode(&data));
+        self
+    }
+
+    pub fn if_match(mut self, ref_: &str) -> UpdateKeyValue<'a> {
+        self.ref_ = Some(ref_.to_string());
+        self
+    }
+
+    pub fn if_absent(mut self) -> UpdateKeyValue<'a> {
+        self.if_absent = Some(true);
+        self
+    }
+
+    pub fn exec(self) -> PathResult {
+        let UpdateKeyValue {
+          client, collection, key, url, data, ref_, if_absent
+        } = self;
+
+        let mut client = client.trailing(url.as_slice())
+                               .body(data.unwrap().as_slice())
+                               .method(Put);
+
+        if ref_.is_some() {
+            client.header("If-Match", ref_.unwrap().as_slice());
+        }
+
+        if if_absent.is_some() {
+            client.header("If-None-Match", "*");
+        }
+
+        let mut res = try!(client.exec());
+        let body = try!(res.read_to_string());
+
+        if (res.status as i32) != 201 {
+            return Err(ResponseError(body));
+        }
+
+        let Location(ref location) = *res.headers.get::<Location>().unwrap();
+        let parts: Vec<&str> = location.split('/').collect();
+
+        Ok(Path {
+            collection: collection,
+            key: key,
+            ref_: Some(parts[5].to_string())
+        })
+    }
+}
+
+pub struct DeleteKeyValue<'a> {
+    client: &'a mut Client,
+    ref_: Option<String>,
+    url: String
+}
+
+impl<'a> DeleteKeyValue<'a> {
+
+    pub fn new(client: &'a mut Client, collection: &str, key: &str)
+               -> DeleteKeyValue<'a> {
+        DeleteKeyValue {
+            client: client,
+            ref_: None,
+            url: format!("{}/{}", collection, key)
+        }
+    }
+
+    pub fn if_match(mut self, ref_: &str) -> DeleteKeyValue<'a> {
+        self.ref_ = Some(ref_.to_string());
+        self
+    }
+
+    pub fn purge(mut self) -> DeleteKeyValue<'a> {
+        self.client.query("purge", "true");
+        self
+    }
+
+    pub fn exec(self) -> Result<bool, OrchestrateError> {
+        let DeleteKeyValue { client, ref_, url } = self;
+        let mut client = client.trailing(url.as_slice()).method(Delete);
+
+        if ref_.is_some() {
+            client.header("If-Match", ref_.unwrap().as_slice());
+        }
+
+        let mut res = try!(client.exec());
+
+        if (res.status as i32) != 204 {
+            return Err(ResponseError(try!(res.read_to_string())));
+        }
+
+        Ok(true)
+    }
+}
+
+pub struct ListReader<'a> {
+    collection: String,
     client: &'a mut Client
 }
 
-impl<'a, 'b> ListReader<'a, 'b> {
-    pub fn new<'a, 'b>(client: &'a mut Client, collection: &str)
-                       -> ListReader<'a, 'b> {
+impl<'a> ListReader<'a> {
+    pub fn new<'a>(client: &'a mut Client, collection: &str) -> ListReader<'a> {
         ListReader {
             collection: collection.to_string(),
-            limit: None,
-            start_key: None,
-            after_key: None,
-            before_key: None,
-            end_key: None,
             client: client
         }
     }
 
-    pub fn limit(mut self, limit: int) -> ListReader<'a, 'b> {
-        self.limit = Some(limit);
+    pub fn limit(mut self, limit: int) -> ListReader<'a> {
+        self.client.query("limit", limit.to_string().as_slice());
         self
     }
 
-    pub fn start_key(mut self, start_key: &str) -> ListReader<'a, 'b> {
-        self.start_key = Some(start_key.to_string());
+    pub fn start_key(mut self, start_key: &str) -> ListReader<'a> {
+        self.client.query("startKey", start_key);
         self
     }
 
-    pub fn after_key(mut self, after_key: &str) -> ListReader<'a, 'b> {
-        self.after_key = Some(after_key.to_string());
+    pub fn after_key(mut self, after_key: &str) -> ListReader<'a> {
+        self.client.query("afterKey", after_key);
         self
     }
 
-    pub fn before_key(mut self, before_key: &str) -> ListReader<'a, 'b> {
-        self.before_key = Some(before_key.to_string());
+    pub fn before_key(mut self, before_key: &str) -> ListReader<'a> {
+        self.client.query("beforeKey", before_key);
         self
     }
 
-    pub fn end_key(mut self, end_key: &str) -> ListReader<'a, 'b> {
-        self.end_key = Some(end_key.to_string());
+    pub fn end_key(mut self, end_key: &str) -> ListReader<'a> {
+        self.client.query("endKey", end_key);
         self
     }
 
-    pub fn exec<T: RepresentsJSON>(self) -> Result<KVResults<T>, Error> {
-        let ListReader {
-            collection,
-            limit,
-            start_key,
-            after_key,
-            before_key,
-            end_key,
-            client,
-            ..
-        } = self;
+    pub fn exec<T: RepresentsJSON>(self) -> KeyValueResults<T> {
+        let ListReader { client, collection } = self;
+        let mut res = try!(client.trailing(collection.as_slice())
+                                 .method(Get).exec());
+        let body = try!(res.read_to_string());
 
-        let mut query_params: Vec<(String, String)> = Vec::new();
-
-        match limit {
-            Some(l) => query_params.push(("limit".to_string(), l.to_string())),
-            None => {}
+        if (res.status as i32) != 200 {
+            return Err(ResponseError(body));
         }
 
-        match start_key {
-            Some(sk) => query_params.push(("startKey".to_string(),
-                                           sk.to_string())),
-            None => {}
-        }
-
-        match after_key {
-            Some(ak) => query_params.push(("afterKey".to_string(),
-                                          ak.to_string())),
-            None => {}
-        }
-
-        match before_key {
-            Some(bk) => query_params.push(("beforeKey".to_string(),
-                                          bk.to_string())),
-            None => {}
-        }
-
-        match end_key {
-            Some(ek) => query_params.push(("endKey".to_string(),
-                                          ek.to_string())),
-            None => {}
-        }
-
-        let encoded_params = serialize(query_params.as_slice());
-        let trailing_uri = format!("{}?{}", collection.as_slice(),
-                                   encoded_params.as_slice());
-        let res = client.request(Get, trailing_uri.as_slice(), None,
-                                     None).unwrap();
-
-        if res.code != 200 {
-            return Err(Error::new(res.body.as_slice()));
-        }
-
-        Ok(json::decode::<KVResults<T>>(res.body.as_slice()).unwrap())
+        Ok(try!(json::decode::<KVResults<T>>(body.as_slice())))
     }
 }
-

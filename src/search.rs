@@ -1,10 +1,9 @@
 use client::Client;
-use error::Error;
 use path::Path;
-use url::form_urlencoded::serialize_owned as serialize;
-use hyper::Get;
-use serialize::json;
+use error::{OrchestrateError, ResponseError};
 use RepresentsJSON;
+use serialize::json;
+use hyper::method::Get;
 
 #[deriving(Decodable, Encodable, Show)]
 pub struct SearchResults<T> {
@@ -33,117 +32,65 @@ pub struct SearchResult<T> {
     pub value: T
 }
 
-pub struct SearchBuilder<'a, 'b> {
-    collection: String,
-    query: Option<String>,
-    sort: Vec<String>,
-    limit: Option<int>,
-    offset: Option<int>,
-    client: &'a mut Client
+pub type SearchResponse<T> = Result<SearchResults<T>, OrchestrateError>;
+
+pub struct SearchBuilder<'a> {
+    client: &'a mut Client,
+    url: String
 }
 
-impl<'a, 'b> SearchBuilder<'a, 'b> {
-    pub fn new<'a, 'b>(client: &'a mut Client, collection: &str)
-                       -> SearchBuilder<'a, 'b> {
-        SearchBuilder{
-            collection: collection.to_string(),
-            query: None,
-            sort: Vec::new(),
-            limit: None,
-            offset: None,
-            client: client
+impl<'a> SearchBuilder<'a> {
+    pub fn new<'a>(client: &'a mut Client, collection: &str)
+                   -> SearchBuilder<'a> {
+        SearchBuilder {
+            client: client,
+            url: collection.to_string()
         }
     }
 
-    pub fn limit(mut self, limit: int) -> SearchBuilder<'a, 'b> {
-        self.limit = Some(limit);
+    pub fn limit(mut self, limit: int) -> SearchBuilder<'a> {
+        self.client.query("limit", limit.to_string().as_slice());
         self
     }
 
-    pub fn offset(mut self, offset: int) -> SearchBuilder<'a, 'b> {
-        self.offset = Some(offset);
+    pub fn offset(mut self, offset: int) -> SearchBuilder<'a> {
+        self.client.query("offset", offset.to_string().as_slice());
         self
     }
 
-    pub fn sort(mut self, prop: &str, sort: &str) -> SearchBuilder<'a, 'b> {
-        self.sort.push(format!("value.{}:{}", prop, sort));
+    pub fn sort(mut self, prop: &str, sort: &str) -> SearchBuilder<'a> {
+        self.client.query("sort", format!("value.{}:{}", prop, sort).as_slice());
         self
     }
 
-    pub fn query(mut self, query: &str) -> SearchBuilder<'a, 'b> {
-        self.query = Some(query.to_string());
+    pub fn query(mut self, query: &str) -> SearchBuilder<'a> {
+        self.client.query("query", query);
         self
     }
 
-    pub fn get_next<T: RepresentsJSON>(&self, results: SearchResults<T>)
-                    -> Result<SearchResults<T>, Error> {
+    pub fn get_next<T: RepresentsJSON>(mut self, results: SearchResults<T>)
+                    -> SearchBuilder<'a> {
         let next = results.next.unwrap();
-        let uri = next.slice_chars(4, next.len());
-        let res = self.client.request(Get, uri, None, None).unwrap();
-
-        if res.code != 200 {
-            return Err(Error::new(res.body.as_slice()));
-        }
-
-        Ok(json::decode::<SearchResults<T>>(res.body.as_slice()).unwrap())
+        self.url = next.slice_chars(4, next.len()).to_string();
+        self
     }
 
-    pub fn get_prev<T: RepresentsJSON>(&self, results: SearchResults<T>)
-                    -> Result<SearchResults<T>, Error> {
+    pub fn get_prev<T: RepresentsJSON>(mut self, results: SearchResults<T>)
+                    -> SearchBuilder<'a> {
         let prev = results.prev.unwrap();
-        let uri = prev.slice_chars(4, prev.len());
-        let res = self.client.request(Get, uri, None, None).unwrap();
-
-        if res.code != 200 {
-            return Err(Error::new(res.body.as_slice()));
-        }
-
-        Ok(json::decode::<SearchResults<T>>(res.body.as_slice()).unwrap())
+        self.url = prev.slice_chars(4, prev.len()).to_string();
+        self
     }
 
-    pub fn exec<T: RepresentsJSON>(self) -> Result<SearchResults<T>, Error> {
-        let SearchBuilder {
-            collection,
-            query,
-            sort,
-            limit,
-            offset,
-            client,
-            ..
-        } = self;
+    pub fn exec<T: RepresentsJSON>(self) -> SearchResponse<T> {
+        let SearchBuilder { client, url } = self;
+        let mut res = try!(client.trailing(url.as_slice()).method(Get).exec());
+        let body = try!(res.read_to_string());
 
-        let mut query_params: Vec<(String, String)> = Vec::new();
-
-        match limit {
-            Some(l) => query_params.push(("limit".to_string(), l.to_string())),
-            None => {}
+        if (res.status as i32) != 200 {
+            return Err(ResponseError(body));
         }
 
-        match offset {
-            Some(o) => query_params.push(("offset".to_string(), o.to_string())),
-            None => {}
-        }
-
-        match query {
-            Some(q) => query_params.push(("query".to_string(), q)),
-            None => {}
-        }
-
-        for item in sort.iter() {
-            query_params.push(("sort".to_string(), item.clone()));
-        }
-
-        let encoded_params = serialize(query_params.as_slice());
-        let trailing_uri = format!("{}?{}", collection.as_slice(),
-                                   encoded_params.as_slice());
-        let res = client.request(Get, trailing_uri.as_slice(), None,
-                                     None).unwrap();
-
-        if res.code != 200 {
-            return Err(Error::new(res.body.as_slice()));
-        }
-
-        Ok(json::decode::<SearchResults<T>>(res.body.as_slice()).unwrap())
+        Ok(try!(json::decode::<SearchResults<T>>(body.as_slice())))
     }
 }
-
