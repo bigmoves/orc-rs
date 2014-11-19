@@ -9,15 +9,15 @@ use hyper::method::{Get, Post, Delete};
 
 #[deriving(Decodable, Encodable, Show)]
 pub struct EventResults<T> {
-    count: u64,
-    results: Vec<EventResult<T>>,
+    pub count: u64,
+    pub results: Vec<EventResult<T>>,
 }
 
 #[deriving(Decodable, Encodable, Show)]
 pub struct EventResult<T> {
-    ordinal: u64,
-    timestamp: u64,
-    value: T
+    pub ordinal: u64,
+    pub timestamp: u64,
+    pub value: T
 }
 
 pub type Events<T> = Result<EventResults<T>, OrchestrateError>;

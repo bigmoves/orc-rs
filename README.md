@@ -9,51 +9,67 @@ time.**
 Examples:
 
 ```rust
+// Import the client
 extern crate orchestrate;
-extern crate serialize;
+extern crate sesrialize;
 
-use orchestrate::{Client, KeyValue};
+use orchestrate::Orchestrate;
 use serialize::json;
 
-fn main() {
+// Create a client
+let mut client = Orchestrate::new("API Key");
 
-  let mut client = Client::new("Your API Key");
-
-  // define a user schema
-  #[deriving(Encodable, Decobale, Show)]
-  struct User {
+// Create a data structure
+#[deriving(Encodable, Decodable)]
+struct User {
     name: String,
-    email: String,
-    username: Option<String>,
-    age: int
-  }
-
-  // create a user object
-  let mut user = User {
-    name: "Chad".to_string(),
-    email: "chadtmiller15@gmail.com".to_string(),
-    username: None,
-    age: 25
-  };
-
-  // create a user, returns a path object with the generated key
-  match client.post("users", &user) {
-    Ok(result) => println!("{}", result.key),
-    Err(err) => println!("{}", err.message)
-  };
-
-  // retrieve a user
-  let result = client.get::<User>("users", "key").unwrap();
-  println!("{}", result.value.age);
-  println!("{}", result.path.key);
-
-  // update a user
-  user.username = Some("chadtmiller".to_string());
-  match client.put("users", &user) {
-    Ok(result) => println!("{}", result.ref_),
-    Err(err) => println!("{}", err.message)
-  }
+    email: String
 }
+
+// Get a value with pattern matching
+match client.get("users", "key").exec::<User>() {
+    Ok(result) => {
+      println!("{}", result);
+      println!("{}", json::encode(&result)); // serialize the result as JSON
+    },
+    Err(err) => println!("{}", err.description())
+}
+
+// or unwrap the result
+let result = client.get("users", "key").exec<User>().unwrap();
+
+// Search
+let results = client.search("users")
+                    .limit(10)
+                    .sort("name", "desc")
+                    .query("chad")
+                    .exec::<User>().unwrap();
+
+// Get the next page of results
+if results.has_next() {
+    let next_results = client.search("users")
+                             .get_next(&results)
+                             .exec::<User>().unwrap();
+    println!("{}", json::encode(&next_results));
+}
+
+// Events
+
+#[deriving(Encodable, Decodable)]
+struct Update {
+    msg: String
+}
+
+// Get Events
+let events = client.get_events("users", "key", "update")
+                   .exec::<Update>().unwrap();
+
+// Create an Event
+let update = Update { msg: "hello".to_string() };
+let event = client.create_event("users", "key", "update")
+                  .data(&update)
+                  .exec().unwrap();
+
 ```
 
 ## Running the examples
@@ -69,4 +85,3 @@ Build and run an example.
 ```shell
 cargo run --example name
 ```
-
