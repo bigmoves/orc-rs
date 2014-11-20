@@ -1,17 +1,13 @@
-use std::fmt;
 use hyper::client;
 use hyper::client::Response;
-use hyper::header::{Header, HeaderFormat, Headers};
 use hyper::method::Method;
 use hyper::header::common::{
     UserAgent, ContentType, ContentLength, Authorization
 };
 use hyper::header::common::authorization::Basic;
-use hyper::net::Fresh;
-use error::{OrchestrateError, ResponseError, HttpError, IoError};
+use error::OrchestrateError;
 use std::collections::HashMap;
 use hyper::Url;
-use url::ParseError;
 use url::form_urlencoded::serialize_owned;
 
 #[deriving(Clone, Show)]

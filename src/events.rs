@@ -1,5 +1,4 @@
 use client::Client;
-use path::Path;
 use error::{OrchestrateError, ResponseError};
 use RepresentsJSON;
 use serialize::{json, Encodable};

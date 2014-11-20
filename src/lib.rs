@@ -1,7 +1,6 @@
 #![crate_name="orchestrate"]
 
-#![feature(globs)]
-#![feature(phase)]
+#![feature(globs, phase)]
 
 extern crate serialize;
 extern crate hyper;
@@ -18,8 +17,7 @@ pub use events::{
 };
 pub use error::{OrchestrateError, ResponseError};
 pub use path::Path;
-use serialize::{json, Encodable, Decoder, Decodable};
-use std::io::IoError;
+use serialize::{json, Decoder, Decodable};
 use hyper::method::Head;
 
 pub trait RepresentsJSON : Decodable<json::Decoder, json::DecoderError> {}
