@@ -21,12 +21,6 @@ pub struct KVResults<T> {
     pub next: Option<String>
 }
 
-impl<T> KVResults<T> {
-    pub fn has_next(&self) -> bool {
-        self.next.is_some()
-    }
-}
-
 pub type KeyValueResult<T> = Result<KVResult<T>, OrchestrateError>;
 pub type KeyValueResults<T> = Result<KVResults<T>, OrchestrateError>;
 pub type PathResult = Result<Path, OrchestrateError>;

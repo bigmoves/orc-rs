@@ -46,7 +46,7 @@ let results = client.search("users")
                     .exec::<User>().unwrap();
 
 // Get the next page of results
-if results.has_next() {
+if results.next.is_some() {
     let next_results = client.search("users")
                              .get_next(&results)
                              .exec::<User>().unwrap();

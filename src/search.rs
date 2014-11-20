@@ -14,16 +14,6 @@ pub struct SearchResults<T> {
     pub prev: Option<String>
 }
 
-impl<T> SearchResults<T> {
-    pub fn has_next(&self) -> bool {
-        self.next.is_some()
-    }
-
-    pub fn has_prev(&self) -> bool {
-        self.prev.is_some()
-    }
-}
-
 #[deriving(Decodable, Encodable, Show)]
 pub struct SearchResult<T> {
     pub path: Path,
@@ -68,18 +58,26 @@ impl<'a> SearchBuilder<'a> {
         self
     }
 
-    pub fn get_next<T: RepresentsJSON>(mut self, results: SearchResults<T>)
+    pub fn get_next<T: RepresentsJSON>(mut self, results: &SearchResults<T>)
                     -> SearchBuilder<'a> {
-        let next = results.next.unwrap();
-        self.url = next.slice_chars(4, next.len()).to_string();
-        self
+        match results.next {
+            Some(ref next) => {
+                self.url = next.slice_chars(4, next.len()).to_string();
+                self
+            },
+            None => self
+        }
     }
 
-    pub fn get_prev<T: RepresentsJSON>(mut self, results: SearchResults<T>)
+    pub fn get_prev<T: RepresentsJSON>(mut self, results: &SearchResults<T>)
                     -> SearchBuilder<'a> {
-        let prev = results.prev.unwrap();
-        self.url = prev.slice_chars(4, prev.len()).to_string();
-        self
+        match results.prev {
+            Some(ref prev) => {
+                self.url = prev.slice_chars(4, prev.len()).to_string();
+                self
+            },
+            None => self
+        }
     }
 
     pub fn exec<T: RepresentsJSON>(self) -> SearchResponse<T> {
