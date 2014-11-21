@@ -16,7 +16,7 @@ use search::SearchBuilder;
 use events::{GetEvents, CreateEvent, DeleteEvent};
 use graph::{GetRelations, PutRelation, DeleteRelation};
 use serialize::{json, Decoder, Decodable};
-use hyper::method::Head;
+use hyper::method::{Head, Delete};
 
 pub trait RepresentsJSON : Decodable<json::Decoder, json::DecoderError> {}
 impl<T: Decodable<json::Decoder, json::DecoderError>> RepresentsJSON for T {}
@@ -38,6 +38,20 @@ impl Orchestrate {
         let mut res = try!(self.client.trailing("").method(Head).exec());
 
         if (res.status as i32) != 200 {
+            return Err(error::RequestError(try!(res.read_to_string())));
+        }
+
+        Ok(true)
+    }
+
+    pub fn delete_collection(&mut self, collection: &str)
+                             -> Result<bool, OrchestrateError> {
+        let mut res = try!(self.client.trailing(collection)
+                                      .query("force", "true")
+                                      .method(Delete)
+                                      .exec());
+
+        if (res.status as i32) != 204 {
             return Err(error::RequestError(try!(res.read_to_string())));
         }
 
