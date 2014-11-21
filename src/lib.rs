@@ -15,6 +15,9 @@ pub use search::{SearchBuilder, SearchResults, SearchResult};
 pub use events::{
   GetEvents, CreateEvent, DeleteEvent, EventResults, EventResult
 };
+pub use graph::{
+  GetRelations, PutRelation, DeleteRelation, GraphResult, GraphResults
+};
 pub use error::{OrchestrateError, ResponseError};
 pub use path::Path;
 use serialize::{json, Decoder, Decodable};
@@ -87,11 +90,31 @@ impl Orchestrate {
                             kind: &str) -> DeleteEvent<'a> {
         DeleteEvent::new(&mut self.client, collection, key, kind)
     }
+
+    pub fn get_relations<'a>(&'a mut self, collection: &str, key: &str,
+                             hops: Vec<&str>) -> GetRelations<'a> {
+        GetRelations::new(&mut self.client, collection, key, hops)
+    }
+
+    pub fn put_relation<'a>(&'a mut self, collection: &str, key: &str,
+                            kind: &str, to_collection: &str, to_key: &str)
+                            -> PutRelation<'a> {
+        PutRelation::new(&mut self.client, collection, key, kind, to_collection,
+                         to_key)
+    }
+
+    pub fn delete_relation<'a>(&'a mut self, collection: &str, key: &str,
+                            kind: &str, to_collection: &str, to_key: &str)
+                            -> DeleteRelation<'a> {
+        DeleteRelation::new(&mut self.client, collection, key, kind,
+                            to_collection, to_key)
+    }
 }
 
 mod client;
 mod key_value;
 mod search;
 mod events;
+mod graph;
 mod error;
 mod path;
