@@ -1,6 +1,6 @@
 use client::Client;
 use path::Path;
-use error::{OrchestrateError, ResponseError};
+use error::{OrchestrateError, RequestError};
 use RepresentsJSON;
 use serialize::json;
 use hyper::method::Get;
@@ -85,7 +85,7 @@ impl<'a> SearchBuilder<'a> {
         let body = try!(res.read_to_string());
 
         if (res.status as i32) != 200 {
-            return Err(ResponseError(body));
+            return Err(RequestError(body));
         }
 
         Ok(try!(json::decode::<SearchResults<T>>(body.as_slice())))

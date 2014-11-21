@@ -7,7 +7,7 @@ use std::error;
 pub enum OrchestrateError {
     JsonError(json::DecoderError),
     HttpError(hyper::HttpError),
-    ResponseError(String),
+    RequestError(String),
     IoError(io::IoError)
 }
 
@@ -16,7 +16,7 @@ impl error::Error for OrchestrateError {
         match *self {
             JsonError(_) => "failed to decode json",
             HttpError(ref err) => err.description(),
-            ResponseError(ref err) => err.as_slice(),
+            RequestError(ref err) => err.as_slice(),
             IoError(ref err) => err.description()
         }
     }

@@ -1,6 +1,6 @@
 use client::Client;
 use path::Path;
-use error::{OrchestrateError, ResponseError};
+use error::{OrchestrateError, RequestError};
 use RepresentsJSON;
 use serialize::{json, Encodable};
 use serialize::json::Encoder;
@@ -49,7 +49,7 @@ impl<'a> GetKeyValue<'a> {
         let body = try!(res.read_to_string());
 
         if (res.status as i32) != 200 {
-            return Err(ResponseError(body));
+            return Err(RequestError(body));
         }
 
         Ok(KeyValueResult {
@@ -98,7 +98,7 @@ impl<'a> CreateKeyValue<'a> {
         let body = try!(res.read_to_string());
 
         if (res.status as i32) != 201 {
-            return Err(ResponseError(body));
+            return Err(RequestError(body));
         }
 
         let Location(ref location) = *res.headers.get::<Location>().unwrap();
@@ -176,7 +176,7 @@ impl<'a> UpdateKeyValue<'a> {
         let body = try!(res.read_to_string());
 
         if (res.status as i32) != 201 {
-            return Err(ResponseError(body));
+            return Err(RequestError(body));
         }
 
         let Location(ref location) = *res.headers.get::<Location>().unwrap();
@@ -228,7 +228,7 @@ impl<'a> DeleteKeyValue<'a> {
         let mut res = try!(client.exec());
 
         if (res.status as i32) != 204 {
-            return Err(ResponseError(try!(res.read_to_string())));
+            return Err(RequestError(try!(res.read_to_string())));
         }
 
         Ok(true)
@@ -281,7 +281,7 @@ impl<'a> ListReader<'a> {
         let body = try!(res.read_to_string());
 
         if (res.status as i32) != 200 {
-            return Err(ResponseError(body));
+            return Err(RequestError(body));
         }
 
         Ok(try!(json::decode::<KeyValueResults<T>>(body.as_slice())))

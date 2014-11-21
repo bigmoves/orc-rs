@@ -1,6 +1,6 @@
 use client::Client;
 use path::Path;
-use error::{OrchestrateError, ResponseError};
+use error::{OrchestrateError, RequestError};
 use RepresentsJSON;
 use serialize::json;
 use hyper::method::{Get, Put, Delete};
@@ -49,7 +49,7 @@ impl<'a> GetRelations<'a> {
         let body = try!(res.read_to_string());
 
         if (res.status as i32) != 200 {
-            return Err(ResponseError(body));
+            return Err(RequestError(body));
         }
 
         Ok(try!(json::decode::<GraphResults<T>>(body.as_slice())))
@@ -76,7 +76,7 @@ impl<'a> PutRelation<'a> {
                                       .method(Put).exec());
 
         if (res.status as i32) != 204 {
-            return Err(ResponseError(try!(res.read_to_string())));
+            return Err(RequestError(try!(res.read_to_string())));
         }
 
         Ok(true)
@@ -103,7 +103,7 @@ impl<'a> DeleteRelation<'a> {
                                       .method(Delete).exec());
 
         if (res.status as i32) != 204 {
-            return Err(ResponseError(try!(res.read_to_string())));
+            return Err(RequestError(try!(res.read_to_string())));
         }
 
         Ok(true)

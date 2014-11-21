@@ -1,5 +1,5 @@
 use client::Client;
-use error::{OrchestrateError, ResponseError};
+use error::{OrchestrateError, RequestError};
 use RepresentsJSON;
 use serialize::{json, Encodable};
 use serialize::json::Encoder;
@@ -65,7 +65,7 @@ impl<'a> CreateEvent<'a> {
         let body = try!(res.read_to_string());
 
         if (res.status as i32) != 201 {
-            return Err(ResponseError(body));
+            return Err(RequestError(body));
         }
 
         Ok(true)
@@ -126,7 +126,7 @@ impl<'a> DeleteEvent<'a> {
                                  .exec());
 
         if (res.status as i32) != 204 {
-            return Err(ResponseError(try!(res.read_to_string())));
+            return Err(RequestError(try!(res.read_to_string())));
         }
 
         Ok(true)
@@ -189,7 +189,7 @@ impl<'a> GetEvents<'a> {
         let body = try!(res.read_to_string());
 
         if (res.status as i32) != 200 {
-            return Err(ResponseError(body));
+            return Err(RequestError(body));
         }
 
         Ok(try!(json::decode::<EventResults<T>>(body.as_slice())))

@@ -38,7 +38,7 @@ impl Orchestrate {
         let mut res = try!(self.client.trailing("").method(Head).exec());
 
         if (res.status as i32) != 200 {
-            return Err(error::ResponseError(try!(res.read_to_string())));
+            return Err(error::RequestError(try!(res.read_to_string())));
         }
 
         Ok(true)
