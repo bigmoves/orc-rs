@@ -6,20 +6,15 @@ extern crate serialize;
 extern crate hyper;
 extern crate url;
 
-pub use client::Client;
-pub use key_value::{
+pub use error::OrchestrateError;
+
+use client::Client;
+use key_value::{
     GetKeyValue, CreateKeyValue, UpdateKeyValue, DeleteKeyValue, ListReader,
-    KeyValueResult, KeyValueResults
 };
-pub use search::{SearchBuilder, SearchResult, SearchResults};
-pub use events::{
-  GetEvents, CreateEvent, DeleteEvent, EventResults, EventResult
-};
-pub use graph::{
-  GetRelations, PutRelation, DeleteRelation, GraphResult, GraphResults
-};
-pub use error::{OrchestrateError, ResponseError};
-pub use path::Path;
+use search::SearchBuilder;
+use events::{GetEvents, CreateEvent, DeleteEvent};
+use graph::{GetRelations, PutRelation, DeleteRelation};
 use serialize::{json, Decoder, Decodable};
 use hyper::method::Head;
 
@@ -43,7 +38,7 @@ impl Orchestrate {
         let mut res = try!(self.client.trailing("").method(Head).exec());
 
         if (res.status as i32) != 200 {
-            return Err(ResponseError(try!(res.read_to_string())));
+            return Err(error::ResponseError(try!(res.read_to_string())));
         }
 
         Ok(true)
@@ -112,9 +107,10 @@ impl Orchestrate {
 }
 
 mod client;
-mod key_value;
-mod search;
-mod events;
-mod graph;
 mod error;
 mod path;
+
+pub mod key_value;
+pub mod search;
+pub mod events;
+pub mod graph;
