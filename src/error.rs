@@ -3,6 +3,7 @@ use hyper;
 use std::io;
 use std::error;
 
+#[deriving(Show)]
 pub enum OrchestrateError {
     JsonError(json::DecoderError),
     HttpError(hyper::HttpError),

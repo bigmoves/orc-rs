@@ -8,10 +8,10 @@ extern crate url;
 
 pub use client::Client;
 pub use key_value::{
-    GetKeyValue, CreateKeyValue, UpdateKeyValue, DeleteKeyValue, KeyValueResult,
-    KeyValueResults, PathResult, ListReader
+    GetKeyValue, CreateKeyValue, UpdateKeyValue, DeleteKeyValue, ListReader,
+    KeyValueResult, KeyValueResults
 };
-pub use search::{SearchBuilder, SearchResults, SearchResult};
+pub use search::{SearchBuilder, SearchResult, SearchResults};
 pub use events::{
   GetEvents, CreateEvent, DeleteEvent, EventResults, EventResult
 };

@@ -19,9 +19,6 @@ pub struct EventResult<T> {
     pub value: T
 }
 
-pub type Events<T> = Result<EventResults<T>, OrchestrateError>;
-pub type Event<T> = Result<EventResult<T>, OrchestrateError>;
-
 pub struct CreateEvent<'a> {
     client: &'a mut Client,
     url: String,
@@ -185,7 +182,8 @@ impl<'a> GetEvents<'a> {
         self
     }
 
-    pub fn exec<T: RepresentsJSON>(self) -> Events<T> {
+    pub fn exec<T: RepresentsJSON>(self)
+                -> Result<EventResults<T>, OrchestrateError> {
         let GetEvents { client, url } = self;
         let mut res = try!(client.trailing(url.as_slice()).method(Get).exec());
         let body = try!(res.read_to_string());

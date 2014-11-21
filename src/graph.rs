@@ -2,9 +2,7 @@ use client::Client;
 use path::Path;
 use error::{OrchestrateError, ResponseError};
 use RepresentsJSON;
-use serialize::{json, Encodable};
-use serialize::json::Encoder;
-use std::io::IoError;
+use serialize::json;
 use hyper::method::{Get, Put, Delete};
 
 #[deriving(Decodable, Encodable, Show)]

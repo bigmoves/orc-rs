@@ -22,8 +22,6 @@ pub struct SearchResult<T> {
     pub value: T
 }
 
-pub type SearchResponse<T> = Result<SearchResults<T>, OrchestrateError>;
-
 pub struct SearchBuilder<'a> {
     client: &'a mut Client,
     url: String
@@ -80,7 +78,8 @@ impl<'a> SearchBuilder<'a> {
         }
     }
 
-    pub fn exec<T: RepresentsJSON>(self) -> SearchResponse<T> {
+    pub fn exec<T: RepresentsJSON>(self)
+                -> Result<SearchResults<T>, OrchestrateError> {
         let SearchBuilder { client, url } = self;
         let mut res = try!(client.trailing(url.as_slice()).method(Get).exec());
         let body = try!(res.read_to_string());

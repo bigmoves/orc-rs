@@ -9,21 +9,17 @@ use hyper::header::common::location::Location;
 use hyper::method::{Get, Put, Post, Delete};
 
 #[deriving(Encodable, Decodable, Show)]
-pub struct KVResult<T> {
+pub struct KeyValueResult<T> {
     pub path: Path,
     pub value: T
 }
 
 #[deriving(Encodable, Decodable, Show)]
-pub struct KVResults<T> {
+pub struct KeyValueResults<T> {
     pub count: int,
-    pub results: Vec<KVResult<T>>,
+    pub results: Vec<KeyValueResult<T>>,
     pub next: Option<String>
 }
-
-pub type KeyValueResult<T> = Result<KVResult<T>, OrchestrateError>;
-pub type KeyValueResults<T> = Result<KVResults<T>, OrchestrateError>;
-pub type PathResult = Result<Path, OrchestrateError>;
 
 pub struct GetKeyValue<'a> {
     client: &'a mut Client,
@@ -44,7 +40,8 @@ impl<'a> GetKeyValue<'a> {
         }
     }
 
-    pub fn exec<T: RepresentsJSON>(self) -> KeyValueResult<T> {
+    pub fn exec<T: RepresentsJSON>(self)
+                -> Result<KeyValueResult<T>, OrchestrateError> {
         let GetKeyValue { client, collection, key, url } = self;
         let mut res = try!(client.trailing(url.as_slice())
                                  .method(Get)
@@ -55,7 +52,7 @@ impl<'a> GetKeyValue<'a> {
             return Err(ResponseError(body));
         }
 
-        Ok(KVResult {
+        Ok(KeyValueResult {
             path: Path {
                 collection: collection,
                 key: key,
@@ -92,7 +89,7 @@ impl<'a> CreateKeyValue<'a> {
         self
     }
 
-    pub fn exec(self) -> PathResult {
+    pub fn exec(self) -> Result<Path, OrchestrateError> {
         let CreateKeyValue { client, collection, url, data } = self;
         let mut res = try!(client.trailing(url.as_slice())
                                  .body(data.unwrap().as_slice())
@@ -158,7 +155,7 @@ impl<'a> UpdateKeyValue<'a> {
         self
     }
 
-    pub fn exec(self) -> PathResult {
+    pub fn exec(self) -> Result<Path, OrchestrateError> {
         let UpdateKeyValue {
           client, collection, key, url, data, ref_, if_absent
         } = self;
@@ -276,7 +273,8 @@ impl<'a> ListReader<'a> {
         self
     }
 
-    pub fn exec<T: RepresentsJSON>(self) -> KeyValueResults<T> {
+    pub fn exec<T: RepresentsJSON>(self)
+                -> Result<KeyValueResults<T>, OrchestrateError> {
         let ListReader { client, collection } = self;
         let mut res = try!(client.trailing(collection.as_slice())
                                  .method(Get).exec());
@@ -286,6 +284,6 @@ impl<'a> ListReader<'a> {
             return Err(ResponseError(body));
         }
 
-        Ok(try!(json::decode::<KVResults<T>>(body.as_slice())))
+        Ok(try!(json::decode::<KeyValueResults<T>>(body.as_slice())))
     }
 }

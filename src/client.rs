@@ -68,7 +68,10 @@ impl Client {
 
     pub fn exec(&self) -> Result<Response, OrchestrateError> {
         let mut url = self.url.clone().unwrap();
-        url.query = Some(serialize_owned(self.query.as_slice()));
+
+        if !self.query.is_empty() {
+          url.query = Some(serialize_owned(self.query.as_slice()));
+        }
         println!("{}", url);
         let mut req = try!(client::Request::new(self.method.clone().unwrap(), url));
 
