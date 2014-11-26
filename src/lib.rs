@@ -34,6 +34,11 @@ impl Orchestrate {
         }
     }
 
+    pub fn set_host(&mut self, host: &str) -> &mut Orchestrate {
+        self.client.host = host.to_string();
+        self
+    }
+
     pub fn ping(&mut self) -> Result<bool, OrchestrateError> {
         let mut res = try!(self.client.trailing("").method(Head).exec());
 

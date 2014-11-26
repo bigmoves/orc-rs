@@ -12,7 +12,7 @@ use url::form_urlencoded::serialize_owned;
 
 #[deriving(Clone, Show)]
 pub struct Client {
-    endpoint: String,
+    pub host: String,
     token: String,
     user_agent: String,
     url: Option<Url>,
@@ -27,7 +27,7 @@ impl Client {
 
     pub fn new(token: &str) -> Client {
         Client {
-            endpoint: "api.orchestrate.io".to_string(),
+            host: "api.orchestrate.io".to_string(),
             token: token.to_string(),
             user_agent: version(),
             url: None,
@@ -41,7 +41,7 @@ impl Client {
 
     pub fn trailing(&mut self, url: &str) -> &mut Client {
         self.url = Some(Url::parse(format!("https://{:s}/v0/{:s}",
-                                           self.endpoint.as_slice(),
+                                           self.host.as_slice(),
                                            url.as_slice()).as_slice()).unwrap());
         self
     }
