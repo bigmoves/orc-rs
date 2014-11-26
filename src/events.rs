@@ -1,5 +1,6 @@
 use client::Client;
-use error::{OrchestrateError, RequestError};
+use error::OrchestrateError;
+use error::OrchestrateError::RequestError;
 use RepresentsJSON;
 use serialize::{json, Encodable};
 use serialize::json::Encoder;

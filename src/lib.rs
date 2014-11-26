@@ -7,6 +7,7 @@ extern crate hyper;
 extern crate url;
 
 pub use error::OrchestrateError;
+use error::OrchestrateError::RequestError;
 
 use client::Client;
 use key_value::{
@@ -43,7 +44,7 @@ impl Orchestrate {
         let mut res = try!(self.client.trailing("").method(Head).exec());
 
         if (res.status as i32) != 200 {
-            return Err(error::RequestError(try!(res.read_to_string())));
+            return Err(RequestError(try!(res.read_to_string())));
         }
 
         Ok(true)
@@ -57,7 +58,7 @@ impl Orchestrate {
                                       .exec());
 
         if (res.status as i32) != 204 {
-            return Err(error::RequestError(try!(res.read_to_string())));
+            return Err(RequestError(try!(res.read_to_string())));
         }
 
         Ok(true)

@@ -40,7 +40,7 @@ impl Client {
     }
 
     pub fn trailing(&mut self, url: &str) -> &mut Client {
-        self.url = Some(Url::parse(format!("https://{:s}/v0/{:s}",
+        self.url = Some(Url::parse(format!("https://{}/v0/{}",
                                            self.host.as_slice(),
                                            url.as_slice()).as_slice()).unwrap());
         self

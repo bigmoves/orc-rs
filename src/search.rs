@@ -1,6 +1,7 @@
 use client::Client;
 use path::Path;
-use error::{OrchestrateError, RequestError};
+use error::OrchestrateError;
+use error::OrchestrateError::RequestError;
 use RepresentsJSON;
 use serialize::json;
 use hyper::method::Get;

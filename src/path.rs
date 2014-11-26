@@ -1,8 +1,8 @@
 #[phase(plugin, link)]
 extern crate "std" as std;
-extern crate "native" as rt;
 #[prelude_import]
 use std::prelude::*;
+
 pub struct Path {
     pub collection: String,
     pub key: String,
@@ -20,8 +20,8 @@ impl ::std::fmt::Show for Path {
                 (__arg0, __arg1, __arg2) => {
                     #[inline]
                     #[allow(dead_code)]
-                    static __STATIC_FMTSTR: [&'static str, ..4u] =
-                        ["Path { collection: ", ", key: ", ", ref_: ", " }"];
+                    static __STATIC_FMTSTR: &'static [&'static str] =
+                        &["Path { collection: ", ", key: ", ", ref_: ", " }"];
                     let __args_vec =
                         &[::std::fmt::argument(::std::fmt::Show::fmt, __arg0),
                           ::std::fmt::argument(::std::fmt::Show::fmt, __arg1),
@@ -69,7 +69,7 @@ impl <__D: ::serialize::Decoder<__E>, __E> ::serialize::Decodable<__D, __E>
                                                                return Err(__try_var),
                                                            },
                                                        ref_:
-                                                           match _d.read_struct_field("ref",
+                                                           match _d.read_struct_field("ref_",
                                                                                       2u,
                                                                                       |_d|
                                                                                           ::serialize::Decodable::decode(_d))
@@ -106,7 +106,7 @@ impl <__S: ::serialize::Encoder<__E>, __E> ::serialize::Encodable<__S, __E>
                                     Ok(__try_var) => __try_var,
                                     Err(__try_var) => return Err(__try_var),
                                 };
-                                return _e.emit_struct_field("ref", 2u,
+                                return _e.emit_struct_field("ref_", 2u,
                                                             |_e|
                                                                 (*__self_0_2).encode(_e));
                             }),

@@ -14,10 +14,10 @@ pub enum OrchestrateError {
 impl error::Error for OrchestrateError {
     fn description(&self) -> &str {
         match *self {
-            JsonError(_) => "failed to decode json",
-            HttpError(ref err) => err.description(),
-            RequestError(ref err) => err.as_slice(),
-            IoError(ref err) => err.description()
+            OrchestrateError::JsonError(_) => "failed to decode json",
+            OrchestrateError::HttpError(ref err) => err.description(),
+            OrchestrateError::RequestError(ref err) => err.as_slice(),
+            OrchestrateError::IoError(ref err) => err.description()
         }
     }
 
@@ -36,18 +36,18 @@ impl error::Error for OrchestrateError {
 
 impl error::FromError<json::DecoderError> for OrchestrateError {
     fn from_error(err: json::DecoderError) -> OrchestrateError {
-        JsonError(err)
+        OrchestrateError::JsonError(err)
     }
 }
 
 impl error::FromError<hyper::HttpError> for OrchestrateError {
     fn from_error(err: hyper::HttpError) -> OrchestrateError {
-        HttpError(err)
+        OrchestrateError::HttpError(err)
     }
 }
 
 impl error::FromError<io::IoError> for OrchestrateError {
     fn from_error(err: io::IoError) -> OrchestrateError {
-        IoError(err)
+        OrchestrateError::IoError(err)
     }
 }
